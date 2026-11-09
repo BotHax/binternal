@@ -568,7 +568,7 @@ end)
 
 # Additional API
 
-## ImGui (see [imgui.md](imgui.lua) for more detailed API)
+## ImGui (see [IMGUI.lua](IMGUI.lua) for more detailed API)
 ```lua
 local State = {
     enabled   = true,
