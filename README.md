@@ -555,19 +555,177 @@ end)
 | GetDiscordID | int | ~ | ~ | ~ | ~ | ~ | Get discord id | Returns 0 if using key system |
 | GetWorkingPath | string | ~ | ~ | ~ | ~ | ~ | Get root directory | In android, returns /sdcard/Android/media/com.rtsoft.growtopia |
 | GetAbsolutePath | string | string | ~ | ~ | ~ | ~ | Get absolute working directory | Same like GetWorkingPath() + '/' + ... |
+| GetScreenSize | [Vector2](#vector2) | ~ | ~ | ~ | ~ | ~ | Get the display size ||
 | EncodeFunction | string | function | ~ | ~ | ~ | ~ | Encode a function ||
 | DecodeFunction | function, string | string | ~ | ~ | ~ | ~ | Load an encrypted payload from EncodeFunction | Second return value only exists if first return value (function) is nil. Error message |
+| Encrypt | string | string | [int = 0] | ~ | ~ | ~ | Encrypt a string | WARNING: This is legacy API. Very unsafe encryption. Prefer use EncodeFunction. p1: data, p2: key |
+| EncryptFile | bool | string | [int = 0] | ~ | ~ | ~ | Encrypt a file, output will be filename + _enc | WARNING: This is legacy API. Very unsafe encryption. p1: file path from `scripts` |
+| LoadEncrypt | [pcall result] | string | [int = 0] | ~ | ~ | ~ | Load encrypted buffer, returns pcall(load(...)) of the buffer. Which is inverse from Encrypt(buffer) | WARNING: This is legacy API. Prefer use DecodeFunction. p1: encrypted buffer, p2: key |
+| LoadEncryptedFile | [pcall result] | string | [int = 0] | ~ | ~ | ~ | Load encrypted file, returns pcall(loadfile(...)) of the encrypted file | WARNING: This is legacy API
 | Hash32 | int | string | [int = 0x811C9DC5] | [int = 0x1000193] | ~ | ~ | FNV1a32-stype hashing with customable base and prime | p2: base value, p3: prime value |
 | Hash64 | int | string | [int = 0xCBF29CE484222325] | [int = 0x100000001B3] | ~ | ~ | FNV1a64-stype hashing with customable base and prime | p2: base value, p3: prime value |
 | b64encode | string | string | ~ | ~ | ~ | ~ | Base64 encode ||
 | b64decode | string | string | ~ | ~ | ~ | ~ | Base64 decode ||
-| md5 | string | string | ~ | ~ | ~ | ~ | MD5 hash | Result are hex in lowercase |
-| sha256 | string | string | ~ | ~ | ~ | ~ | Base64 decode | Result are hex in lowercase |
-| sha1 | string | string | ~ | ~ | ~ | ~ | Base64 decode | Result are hex in lowercase |
+| md5 | string | string | ~ | ~ | ~ | ~ | md5 hash | Result are hex in lowercase |
+| sha256 | string | string | ~ | ~ | ~ | ~ | sha256 hash | Result are hex in lowercase |
+| sha1 | string | string | ~ | ~ | ~ | ~ | sha1 hash | Result are hex in lowercase |
 ---
 
 # Additional API
 
+## json (json utility)
+```lua
+json.stringify
+json.parse
+json.encode
+json.decode
+```
+```lua
+local function assert_eq(actual, expected, msg)
+  if actual ~= expected then
+    error(string.format("%s\nExpected: %s\nActual:   %s", msg or "Assertion failed", tostring(expected), tostring(actual)), 2)
+  end
+end
+
+local function check_error(fn, pattern, desc)
+  local ok, err = pcall(fn)
+  if ok then
+    error(string.format("Expected error for '%s', but execution succeeded", desc or "unnamed test"), 2)
+  end
+  if not string.find(tostring(err), pattern, 1, true) then
+    error(string.format("Error mismatch for '%s':\nExpected pattern: %s\nActual error:   %s", desc or "", pattern, tostring(err)), 2)
+  end
+end
+
+print("[TEST 01] RFC 8259 Compliance & Edge Cases...")
+
+-- 1. Function existence and aliases
+assert(type(json.stringify) == "function", "json.stringify must be a function")
+assert(type(json.parse) == "function", "json.parse must be a function")
+assert(type(json.encode) == "function", "json.encode alias must exist")
+assert(type(json.decode) == "function", "json.decode alias must exist")
+assert(json.null ~= nil, "json.null sentinel must exist")
+assert(type(json.isnull) == "function", "json.isnull must be a function")
+
+-- 2. Primitives: Null & Booleans
+assert_eq(json.stringify(nil), "null", "nil -> null")
+assert_eq(json.stringify(true), "true", "true -> true")
+assert_eq(json.stringify(false), "false", "false -> false")
+assert_eq(json.parse("null"), nil, "null -> nil")
+assert_eq(json.parse("true"), true, "true -> true")
+assert_eq(json.parse("false"), false, "false -> false")
+
+-- 3. Numbers: Integers & Floats
+assert_eq(json.stringify(0), "0")
+assert_eq(json.stringify(42), "42")
+assert_eq(json.stringify(-999), "-999")
+assert_eq(json.stringify(9007199254740991), "9007199254740991")
+assert_eq(json.stringify(3.14159), "3.14159")
+assert_eq(json.stringify(-0.005), "-0.005")
+
+assert_eq(json.parse("0"), 0)
+assert_eq(json.parse("42"), 42)
+assert_eq(json.parse("-999"), -999)
+assert_eq(json.parse("9007199254740991"), 9007199254740991)
+assert(math.abs(json.parse("3.14159") - 3.14159) < 1e-12)
+assert(math.abs(json.parse("1.25e-3") - 0.00125) < 1e-12)
+assert(math.abs(json.parse("-2.5E+2") - (-250.0)) < 1e-12)
+
+-- 4. Strings & Escape Sequences
+assert_eq(json.stringify(""), [[""]])
+assert_eq(json.stringify("abc"), [["abc"]])
+assert_eq(json.stringify("quote: \" backslash: \\ slash: /"), [["quote: \" backslash: \\ slash: /"]])
+assert_eq(json.stringify("controls: \b \f \n \r \t"), [["controls: \b \f \n \r \t"]])
+
+assert_eq(json.parse([[""]]), "")
+assert_eq(json.parse([["abc"]]), "abc")
+assert_eq(json.parse([["quote: \" backslash: \\ slash: \/"]]), "quote: \" backslash: \\ slash: /")
+assert_eq(json.parse([["controls: \b \f \n \r \t"]]), "controls: \b \f \n \r \t")
+
+-- 5. Unicode escapes and UTF-16 surrogate pairs
+assert_eq(json.parse([["\u0041\u0042\u0043"]]), "ABC")
+assert_eq(json.parse([["Caf\u00e9"]]), "Café")
+-- Emoji: U+1F600 (Grinning Face) encoded as surrogate pair \uD83D\uDE00
+local emoji_parsed = json.parse([["\ud83d\ude00"]])
+assert_eq(#emoji_parsed, 4, "UTF-8 emoji should be 4 bytes")
+-- Round-trip emoji through stringify and parse
+local emoji_encoded = json.stringify(emoji_parsed)
+assert_eq(json.parse(emoji_encoded), emoji_parsed)
+
+-- 6. Arrays
+assert_eq(json.stringify({}), "[]")
+assert_eq(json.stringify({ 1, 2, 3 }), "[1,2,3]")
+assert_eq(json.stringify({ "a", true, false, 3.5 }), '["a",true,false,3.5]')
+local arr_parsed = json.parse('[1, 2, "three", true, false]')
+assert_eq(#arr_parsed, 5)
+assert_eq(arr_parsed[1], 1)
+assert_eq(arr_parsed[3], "three")
+assert_eq(arr_parsed[4], true)
+
+-- 7. Objects and deterministic sorted keys
+local test_obj = {
+  z = 26,
+  a = 1,
+  m = "middle",
+  b = false
+}
+local obj_json = json.stringify(test_obj)
+assert_eq(obj_json, '{"a":1,"b":false,"m":"middle","z":26}')
+local obj_parsed = json.parse(obj_json)
+assert_eq(obj_parsed.a, 1)
+assert_eq(obj_parsed.b, false)
+assert_eq(obj_parsed.m, "middle")
+assert_eq(obj_parsed.z, 26)
+
+-- 8. Metatable type hints for empty structures
+local empty_arr = setmetatable({}, { __json_type = "array" })
+local empty_obj = setmetatable({}, { __json_type = "object" })
+assert_eq(json.stringify(empty_arr), "[]")
+assert_eq(json.stringify(empty_obj), "{}")
+
+-- 9. Pretty-printing (indentation)
+local tree = {
+  title = "root",
+  items = { 1, 2 }
+}
+local pretty2 = json.stringify(tree, 2)
+assert(string.find(pretty2, '\n  "items": [\n    1,\n    2\n  ],\n', 1, true) ~= nil, "pretty indent 2 format check")
+
+local pretty4 = json.stringify(tree, 4)
+assert(string.find(pretty4, '\n    "items": [\n        1,\n        2\n    ],\n', 1, true) ~= nil, "pretty indent 4 format check")
+
+-- 10. json.null sentinel and preserve_null option in parse
+local null_arr = json.parse('[10, null, 30]', true)
+assert_eq(#null_arr, 3)
+assert_eq(null_arr[1], 10)
+assert(json.isnull(null_arr[2]), "index 2 should be null")
+assert(null_arr[2] == json.null, "index 2 should equal json.null")
+assert_eq(null_arr[3], 30)
+assert_eq(json.stringify(null_arr), '[10,null,30]')
+
+-- 11. Error handling and syntax validation
+check_error(function() json.parse('{') end, "unterminated object", "unclosed {")
+check_error(function() json.parse('[') end, "unexpected end", "unclosed [")
+check_error(function() json.parse('[1, 2,]') end, "expected", "trailing comma in array")
+check_error(function() json.parse('{"a": 1,}') end, "expected string key", "trailing comma in object")
+check_error(function() json.parse('{"a"}') end, "expected ':'", "missing colon in object")
+check_error(function() json.parse('{123: 1}') end, "expected string key", "numeric unquoted key in object")
+check_error(function() json.parse('012') end, "leading zeros", "leading zero in number")
+check_error(function() json.parse([["\u123"]]) end, "invalid \\uXXXX", "incomplete hex escape")
+check_error(function() json.parse([["\ud800"]]) end, "unpaired UTF-16", "unpaired high surrogate")
+check_error(function() json.parse('[1, 2] extra') end, "unexpected trailing", "trailing garbage")
+
+-- 12. Serialization error handling
+local cyclic_tbl = { id = 1 }
+cyclic_tbl.ref = cyclic_tbl
+check_error(function() json.stringify(cyclic_tbl) end, "circular table reference", "cycle detection")
+check_error(function() json.stringify(0/0) end, "cannot serialize NaN", "NaN serialization")
+check_error(function() json.stringify(1/0) end, "cannot serialize NaN", "Infinity serialization")
+check_error(function() json.stringify(function() end) end, "unsupported type 'function'", "function serialization")
+check_error(function() json.stringify({ [function() end] = 1 }) end, "unsupported table key type 'function'", "function table key")
+
+print("[PASS] Test 01: All compliance and edge-case assertions passed successfully!")
+```
 ## ImGui (see [IMGUI.lua](IMGUI.lua) for more detailed API)
 ```lua
 local State = {
@@ -664,6 +822,9 @@ AddHook('draw', 1, OnRender)
 ```
 ## MakeRequest
 [HTTPResponse](#httpresponse) MakeRequest(string[, table][, string][, table])
+
+p1: url, p2: headers, p3: content, p4: additional data
+
 ```lua
 local response = MakeRequest(
     -- url, string
@@ -702,4 +863,26 @@ local response = MakeRequest(
     }
 )
 ```
+### MakeRequest also support legacy parameters
+[HTTPResponse](#httpresponse) MakeRequest(string[, string][, table][, string][, table][, table][, int])
+
+p1: url, p2: method, p3: headers, p4: content, p5: dns resolve, p6: deprecated socks5, p7: timeout
+
+```lua
+MakeRequest(
+    "https://www.google.com",
+    "GET",
+    {
+        ["User-Agent"]="Unknown",
+        ["Content-Type"]="application/json"
+    },
+    "Hello",
+    { -- dns resolver. something like custom hosts
+        "www.google.com:443:127.0.0.1" -- equivalent to `127.0.0.1 www.google.com` in hosts (for https connection since the port is 443)
+    },
+    nil, -- socks5, deprecated
+    10 -- timeout
+)
+```
+
 ## WebSocket: TODO
