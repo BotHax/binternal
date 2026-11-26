@@ -249,12 +249,23 @@
 | `alttype` | Alternate type | int |
 | `admin` | Table of admin entries | int[] |
 | `avatar` | Avatar data | [AvatarData](#avatardata) |
-| `silkworm` | Silkworm data | ~ |
-| `ftank` | Fish tank data | ~ |
+| `silkworm` | Silkworm info | [SilkwormInfo](#silkworminfo) |
+| `ftank` | Fishtank info | ~ |
 | `magplant` | Item sucker info | [ItemSuckerInfo](#itemsuckerinfo) |
 | `color` | Kranken color | int |
 | `stormcloud` | Storm cloud | bool |
 | `progress` | Seed/provider progress | float |
+
+---
+
+### SilkwormInfo
+
+| Field | Description | Type |
+|-------|-------------|------|
+| `food` | Food level | int |
+| `water` | Water level | int |
+| `color` | Silkworm color | int |
+| `sick` | Sick level | int |
 
 ---
 
@@ -312,7 +323,9 @@
 | `pos` | Camera position | [Vector2](#vector2) |
 | `center` | Camera center | [Vector2](#vector2) |
 | `scale` | Camera scale | float
-| `resolution` | Current resolution | [Vector2](#vector2) |
+| `screensize` | Screen size | [Vector2](#vector2) |
+| `viewsize` | Current view size | [Vector2](#vector2) |
+
 
 ##### Related Function
 
@@ -339,7 +352,6 @@
 
 | Field | Description | Type |
 |-------|-------------|------|
-| `flags` | Inventory flags | int |
 | `clothing` | Table of clothing item IDs (indexed 0–8) | int[9] |
 | `quickslot` | Table of quickslot item IDs (indexed 0–3) | int[4] |
 | `slot` | Backpack slot | int |
